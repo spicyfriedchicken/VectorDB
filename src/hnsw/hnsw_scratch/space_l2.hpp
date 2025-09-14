@@ -1,7 +1,7 @@
 template <typename Scalar>
 struct L2Sqr {
     [[nodiscard]] inline Scalar operator()(const Scalar* vec1, const Scalar* vec2, const size_t* dim) const {
-        
+
         Scalar result = 0;
         for (size_t i = 0; i < *dim; i++) {
             Scalar diff = *vec1 - *vec2;
@@ -20,7 +20,7 @@ class L2Space : public SpaceInterface<Scalar, DistanceFunction> {
     size_t data_size_;
 
 public:
-   L2Space(size_t dim) 
+   L2Space(size_t dim)
         : distance_function_(), dim_(dim), data_size_(dim * sizeof(Scalar)) {}
 
     size_t get_data_size() const override {
@@ -40,7 +40,7 @@ template <typename Scalar = unsigned char>
 struct L2Sqr4x {
     [[nodiscard]] inline int operator()(const Scalar* vec1, const Scalar* vec2, const size_t* dim) const {
         int result = 0;
-        d >>= 2; 
+        d >>= 2;
         for (size_t i = 0; i < *dim; ++i) {
             result += (vec1[0] - vec2[0]) * (vec1[0] - vec2[0]);
             result += (vec1[1] - vec2[1]) * (vec1[1] - vec2[1]);
@@ -98,4 +98,3 @@ public:
     ~L2SpaceI() {}
 
 };
-

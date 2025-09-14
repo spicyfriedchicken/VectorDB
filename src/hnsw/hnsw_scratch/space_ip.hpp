@@ -24,7 +24,7 @@ class InnerProductSpace : public SpaceInterface<Scalar, DistanceFunction> {
     size_t data_size_;
 
 public:
-    InnerProductSpace(size_t dim) 
+    InnerProductSpace(size_t dim)
         : distance_function_(), dim_(dim), data_size_(dim * sizeof(Scalar)) {}
 
     size_t get_data_size() const override {

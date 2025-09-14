@@ -13,7 +13,7 @@ What this does:
 If running many parallel searches over a dataset - each search MUST track which elements it has already visited - so we create this
 Visited List Pool - a temporary bitmap for visited flags.
 
-VisitedList: Tracks whether an element was visited in the current query iteration. 
+VisitedList: Tracks whether an element was visited in the current query iteration.
 visitedAt[i] holds when an element was last visited.
 currentVisited is incremented after each search.
 If visitedAt[i] == currentVisited. Current node was visited in this search.
@@ -21,7 +21,7 @@ If visitedAt[i] == currentVisited. Current node was visited in this search.
 
 VisitedListPool - preallocate N VisitedList elements.
 Functions as an allocator and releaser of visited lists for memory reuse/efficiency
-Concurrency is managed by dequeue and mutexes. 
+Concurrency is managed by dequeue and mutexes.
 */
 
 #pragma once
@@ -37,7 +37,7 @@ class VisitedList {
 public:
     vl_type currentVisited; // curV
     vl_type* visitedAt;// mass
-    unsigned int numElements; 
+    unsigned int numElements;
 
     VisitedList(int numElements_)
         : currentVisited(-1), numElements(numElements_) {

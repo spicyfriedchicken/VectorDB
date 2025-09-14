@@ -7,7 +7,6 @@
 #include <stdlib.h> // C-style memory mgmt (Goal: Get rid of this)
 #include <assert.h> // runtime-assertion checks
 #include <unordered_set> // fast set lookups
-#include <list> // temporary path tracking/queuing
 #include <memory> // unique_ptr
 
 
@@ -27,13 +26,13 @@ public:
     // Index Metadata & Graph Structure
     size_t capacity_{0}; // total allotted capaicty (max num elements)
     mutable std::atomic<size_t> element_count_{0}; // current number of elements
-    mutable std::atomic<size_t> deleted_count_{0}; // number of elements MARKED deleted     
+    mutable std::atomic<size_t> deleted_count_{0}; // number of elements MARKED deleted
     int max_level_{0}; // highest/max level in the multi-layer HNSW
     unsigned int entry_id_{0}; // ID NOde of the starting entry point in the entrie HNSW graph
     std::vector<int> element_levels_; // keeps level of each element, SIZE OF CAPACITY_
 
     // Link Graph Parameters
-    size_t M_{0}; // target degree for each node - otherwise known as "M" in HNSW . 
+    size_t M_{0}; // target degree for each node - otherwise known as "M" in HNSW .
     size_t max_M_{0}; // max degree capacity at upper levels (typically equiv to link degree_).
     size_t max_M0_{0}; // max degree capacity at level 0, (typically 2M)
     size_t efConstruction_{0}; // neighbors to evaluate during insertion - efConstruction in whitepaper
@@ -44,13 +43,13 @@ public:
 
     // Memory Layout for Level 0 (Contiguous)
     /* Element_Stride = Total Size for one block of these in L0.
-    // For every node in Level0, we have this structure. 
+    // For every node in Level0, we have this structure.
     // level0_data_ a contig memblcok represents ALL elements in HNSW in contiguous format, each of these blocks can be offset by
     // internal_id * element_stride! ! After indexing our block of interest we can access the block data of our element by adding this to:
     ┌──────────────────────────────┐
     │ [level-0 links]              │  ← offset = link0_offset_ = 0
     │  - sizeof(unsigned int)      │
-    │  - link_capacity_level0_ *   │ 
+    │  - link_capacity_level0_ *   │
     │ sizeof(unsigned in           │
     ├──────────────────────────────┤
     │ [vector data]                │  ← offset = data_offset_
@@ -68,15 +67,15 @@ public:
     size_t data_size_{0}; // Size in bytes of the vector/embedding of each lements. (determined by space / dimension * sizeof(float))
     size_t label_offset_{0}; // offset of label (label in this case is user-defined key such as an SKU
     // label_size is basically the rest of the assigned mem or even (element_stride - (data_offset_+data_size))
-    char *level0_data_{nullptr} // contiguous memory block for level-0 nodes. 
-    
+    char *level0_data_{nullptr} // contiguous memory block for level-0 nodes.
+
     // Memory Layout for Level 1
     char **link_blocks_{nullptr} // pointer array for upper-level link blocks (level 0 is NOT included)
     size_t link_stride_{0}; // size of link block in upper levels -> link_stride_ = link_capacity_upper_ * sizeof(unsigned int) + sizeof(unsigned int);
 
     // Concurrency Primitives!
     mutable std::vector<std::mutex> label_locks_; // using MAX_LABEL_OPERATION_LOCKS i.e striped locking for label->ID ops
-    std::mutex global_lock_; // For rare global operations such as updating entry_id_ or max_leveL_ 
+    std::mutex global_lock_; // For rare global operations such as updating entry_id_ or max_leveL_
     std::vector<std::mutex> link_locks_;// One lock per node for link list updates during graph mutation
 
     // Label to Internal ID Mapping
@@ -84,8 +83,8 @@ public:
    std::unordered_map<size_t, unsigned int> label_map_;
 
     // Distance Function and Metadata
-    DISTFUNC<dist_t> distance_function_; // ???????? Altered. Please update. 
-    void *distance_function_parameters_{nullptr}; // ???????? Altered. Please update. 
+    DISTFUNC<dist_t> distance_function_; // ???????? Altered. Please update.
+    void *distance_function_parameters_{nullptr}; // ???????? Altered. Please update.
 
 
     // RNG for level assignment/updates
@@ -112,7 +111,7 @@ public:
                     bool nmslib = false,
                     size_t capacity = 0,
                     bool reuse_deleted = false)
-                    : reuse_deleted_(reuse_deleted) 
+                    : reuse_deleted_(reuse_deleted)
                     { loadIndex(location, space, capacity); }
 
     HierarchicalNSW(SpaceInterface<dist_t> *space,
@@ -144,13 +143,13 @@ public:
 
                         level_rng_.seed(random_seed);
                         update_rng_.seed(random_seed + 1);
-                        
+
                         link0_stride_ = max_M0_ * (sizeof(unsigned int)) + (sizeof(unsigned int));
                         element_stride_ = link0_stride_ + data_size_ + sizeof(size_t);
                         link0_offset_ = 0;
                         data_offset_ = link0_offset_ + link0_stride_;
                         label_offset_ = data_offset_ + data_size_;
-                        
+
                         size_t size_level0_data = capacity_ * element_stride_;
                         level0_data_ = (char *)malloc(size_level0_data);
                         if (level0_data_ == nullptr) {
@@ -161,7 +160,7 @@ public:
                         element_count_ = 0;
 
                         visited_list_pool_ = std::unique_ptr<VisitedListPool>(new VisitedListPool(1, max_elements));
-                        
+
                         entry_id_ = -1;
                         max_level_ = -1;
 
@@ -182,7 +181,7 @@ public:
         clear();
     }
 
-    // Pretty self-explanatory - we release all elements in level0_data_, and iterate through each element and free 
+    // Pretty self-explanatory - we release all elements in level0_data_, and iterate through each element and free
     // neighbor lists in all levels != 0.
     void clear() {
         free(level0_data_);
@@ -214,12 +213,12 @@ public:
         return label_locks_[lock_id];
     }
 
-    // MEMCPY signature -> void* memcpy(void* dest, const void* src, size_t count); 
+    // MEMCPY signature -> void* memcpy(void* dest, const void* src, size_t count);
 
     inline size_t getExternalLabel(unsigned int internal_id) const {
             size_t return_label;
             memcpy(&return_label, (level0_data_ + internal_id * element_stride_ + label_offset_), sizeof(size_t));
-            // for your own reference, level0_data_ points to the contiguous block of memory holding L0 nodes. internal_id * element_stride gives us the index 
+            // for your own reference, level0_data_ points to the contiguous block of memory holding L0 nodes. internal_id * element_stride gives us the index
             // of the node of interest, and + label_offset_ gives us the offset where the label information is stored. Check diagram above.
             return return_label;
     }
@@ -239,7 +238,7 @@ public:
     // my guess reverse is an input for testing and functionla programming purposes.
     int getRandomLevel(double reverse) {
         std::uniform_real_distribution<double> distribution(0.0, 1.0); // random distribution between 0,1.
-        double r = -log(distribution(level_rng_) * reverse); // given seeded level_rng and distrubtion - we get a repro. rng # between 0,1. 
+        double r = -log(distribution(level_rng_) * reverse); // given seeded level_rng and distrubtion - we get a repro. rng # between 0,1.
         return (int) r;
     }
 
@@ -259,19 +258,19 @@ public:
     unsigned int* get_neighbors_L0(unsigned int internal_id) const {
         return (unsigned int*)(level0_data_ + internal_id * element_stride_ + link0_offset_);
     }
-    
+
     unsigned int* get_neighbors_L0(unsigned int internal_id, char* level0_data_) const {
         return (unsigned int*)(level0_data_ + internal_id * element_stride_ + link0_offset_);
     }
-    
+
     unsigned int* get_neighbors(unsigned int internal_id, int level) const {
         return (unsigned int*)(linkLists_[internal_id] + (level - 1) * link_stride_);
     }
-    
+
     unsigned int* get_neighbors_at_level(unsigned int internal_id, int level) const {
         return level == 0 ? get_neighbors_L0(internal_id) : get_neighbors(internal_id, level);
     }
-    
+
 
 
     bool isMarkedDeleted(unsigned int internalId) const {
@@ -295,7 +294,7 @@ public:
         VisitedList *Visited_List = visited_pool_->getFreeVisitedList();
         unsigned short int* Visited_Array = Visited_List->visitedAt;
         unsigned short int Visited_Array_Tag = Visited_List->currentVisited;
-        
+
         std::priority_queue<std::pair<dist_t, unsigned int>, std::vector<std::pair<dist_t, unsigned int>>, CompareByFirst> Top_K;
         std::priority_queue<std::pair<dist_t, unsigned int>, std::vector<std::pair<dist_t, unsigned int>>, CompareByFirst> K_Set;
 
@@ -321,7 +320,7 @@ public:
             std::unique_lock <std::mutex> lock(link_locks_[current_node_id]);
 
             int *data;
-            
+
             if (layer == 0) {
                 data = (int *)get_neighbors_L0(current_node_id);
             } else {
@@ -355,7 +354,7 @@ public:
         return Top_K;
     }
     void getNeighborsByHeuristic2 (
-        std::priority_queue<std::pair<dist_t, unsigned int>, std::vector<std::pair<dist_t, unsigned int>>, CompareByFirst> &Top_K, 
+        std::priority_queue<std::pair<dist_t, unsigned int>, std::vector<std::pair<dist_t, unsigned int>>, CompareByFirst> &Top_K,
         const size_t M) {
         if (Top_K.size() < M) {
             return;
@@ -378,7 +377,7 @@ public:
                                                              getDataByInternalId(curent_pair.second),
                                                              distance_function_parameters_);
                 if (current_distance < distance_to_query) {
-                    flag = false 
+                    flag = false
                     break;
                 }
             }
@@ -386,7 +385,7 @@ public:
         }
         for (std::pair<dist_t, unsigned int> current_pair : return_list)
             Top_K.emplace(-current_pair.first, current_pair.second);
-        
+
     }
 
     unsigned int mutuallyConnectNewElement(
@@ -395,7 +394,7 @@ public:
         std::priority_queue<std::pair<dist_t, unsigned int>, std::vector<std::pair<dist_t, unsigned int>>, CompareByFirst> &Top_K,
         int level,
         bool updateFlag) {
-        
+
         size_t max_M = level ? max_M_ : maxM0_;
         getNeighborsByHeuristic2(Top_K, M_);
         if (Top_K.size() > M_) throw std::runtime_error("Should not be more than M_ candidates returned by the heuristic");
@@ -418,9 +417,9 @@ public:
             else
                 link_current = get_neighbors_at_level(current_c, level);
 
-            if (*link_current && !updateFlag) 
+            if (*link_current && !updateFlag)
                 throw std::runtime_error("The newly inserted element should have a blank neighbor list");
-            
+
             setListCount(link_current, selectedNeighbors.size());
             unsigned int *data = (unsigned int *) (link_current + 1);
             for (size_t idx = 0; idx < selectedNeighbors.size(); idx++) {
@@ -468,10 +467,10 @@ public:
                     data[sizeof_link_other] = current_c;
                     setListCount(link_other, sizeof_link_other + 1);
                 } else {
-                    dist_t max_distance = distance_function_(getDataByInternalId(current_c), 
+                    dist_t max_distance = distance_function_(getDataByInternalId(current_c),
                                                       getDataByInternalId(selectedNeighbors[idx]),
                                                       distance_function_parameters_);
-                    
+
                     std::priority_queue<std::pair<dist_t, unsigned int>, std::vector<std::pair<dist_t, unsigned int>>, CompareByFirst> K_Set;
                     K_Set.emplace(max_distance, current_c);
 
@@ -743,7 +742,7 @@ public:
 
     /*
     * Removes the deleted mark of the node, does NOT really change the current graph.
-    * 
+    *
     * Note: the method is not safe to use when replacement of deleted elements is enabled,
     *  because elements marked as deleted can be completely removed by addPoint
     */
@@ -1244,5 +1243,3 @@ public:
         std::cout << "integrity ok, checked " << connections_checked << " connections\n";
     }
 };
-
-
